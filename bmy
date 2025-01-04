@@ -1,0 +1,161 @@
+//@version=6
+strategy('öneri çalışma', overlay = true, calc_on_order_fills = false, commission_value = 0.04, initial_capital = 10000, default_qty_value = 100, default_qty_type = strategy.percent_of_equity,pyramiding = 1)
+
+// Girdi parametreleri 
+yatirimTutari = input.float(10000, title="Yatırım Tutarı") 
+mevcut_fiyat = close // Toplam lot miktarını hesapla 
+toplamLot = math.floor(yatirimTutari / mevcut_fiyat)
+// Girdi parametreleri
+
+ilk_kademe_alim = input.price(title = '      ‣   ✏️ İlk kademe alım fiyatı;ilk kademe > 2. kademe  olmalı',defval=6)
+ikinci_kademe_alim =input.price(title = '      ‣   ✏️ İkinci kademe alım fiyatı gir',defval =7)
+zarar_kes = input.price(title = '      ‣   ✏️ Zarar kes  fiyatı gir',defval =9)
+hedef_fiyat = input.price(title = '      ‣   ✏️ Hedef  fiyatı gir',defval =11)
+
+// Alım fiyatı 1 ve 2'nin ortalamasını hesapla
+ortalama_maliyet = (ilk_kademe_alim+ ikinci_kademe_alim) / 2
+
+
+// Çizgi ve etiket listeleri
+var line[] lines = array.new_line(0)
+var label[] labels = array.new_label(0)
+
+// // Eski çizgi ve etiketleri temizleme
+if (bar_index > 1)
+    // Çizgileri sil
+    for i = 0 to array.size(lines) - 1
+        line.delete(array.get(lines, i))
+    array.clear(lines)
+
+    // Etiketleri sil
+    for i = 0 to array.size(labels) - 1
+        label.delete(array.get(labels, i))
+    array.clear(labels)
+
+
+// Yeni çizgileri ve etiketleri oluşturma
+for i = 0 to 4 // 5 defa tekrarla (örnek olarak)
+// // Yeni çizgileri ve etiketleri oluşturma
+// for i = 1 to ortalama_maliyet
+    tp_             =  hedef_fiyat
+    stop_           = zarar_kes
+    ilk_kademe      =ilk_kademe_alim
+    ikinci_kademe   =ikinci_kademe_alim
+    ortalama_       =ortalama_maliyet
+
+    // Çizgileri ekleme ve listeye kaydetme
+    tp_line             =line.new(x1=bar_index[300], y1=tp_, x2=bar_index + 10, y2=tp_, color=color.green, width=1)
+    stop_line           =line.new(x1=bar_index[300], y1=stop_, x2=bar_index + 10, y2=stop_, color=color.red, width=1)
+    ilk_kademe_line     =line.new(x1=bar_index[300], y1=ilk_kademe, x2=bar_index + 10, y2=ilk_kademe, color=color.olive, width=1)
+    ikinci_kademe_line  =line.new(x1=bar_index[300], y1=ikinci_kademe, x2=bar_index + 10, y2=ikinci_kademe, color=color.olive, width=1)
+    ortalama_line       =line.new(x1=bar_index[300], y1=ortalama_, x2=bar_index + 10, y2=ortalama_, color=color.blue, width=1)
+
+    array.push(lines, tp_line)
+    array.push(lines, stop_line)
+    array.push(lines, ilk_kademe_line)
+    array.push(lines, ikinci_kademe_line)
+    array.push(lines, ortalama_line)
+
+
+// Mevcut fiyat
+  
+    tp_yuzdesel = ((hedef_fiyat - mevcut_fiyat) / mevcut_fiyat) * 100
+    stop_yuzdesel = ((zarar_kes - mevcut_fiyat) / mevcut_fiyat) * 100
+    ilk_kademe_yuzdesel = ((ilk_kademe_alim - mevcut_fiyat) / mevcut_fiyat) * 100
+    ikinci_kademe_yuzdesel = ((ikinci_kademe_alim - mevcut_fiyat) / mevcut_fiyat) * 100
+    ortalama_yuzdesel = ((ortalama_maliyet - mevcut_fiyat) / mevcut_fiyat) * 100
+
+    // Etiketleri ekleme ve listeye kaydetme
+    tp_label            = label.new(bar_index + 10,  tp_,"Hedef Fiyat: " + str.tostring(hedef_fiyat,'#.##')  +"      Uzaklık= (%" + str.tostring(tp_yuzdesel, '#.#') + ")", style=label.style_label_left, color=color.green)
+    stop_label          = label.new(bar_index + 10, stop_, "Zarar Kes: "+ str.tostring(zarar_kes,'#.##') + "  Uzaklık= (%" + str.tostring(stop_yuzdesel, '#.#') + ")", style=label.style_label_left, color=color.red)
+    ilk_kademe_label    = label.new(bar_index + 10, ilk_kademe,  str.tostring(ilk_kademe_alim,'#.##') + " (%" + str.tostring(ilk_kademe_yuzdesel, '#.#') + ")", style=label.style_label_left, color=color.olive)
+    ikinci_kademe_label = label.new(bar_index + 10, ikinci_kademe, str.tostring(ikinci_kademe_alim, '#.##')+ " (%" + str.tostring(ikinci_kademe_yuzdesel, '#.#') + ")" ,style=label.style_label_left, color=color.olive)
+    ortalama_label      = label.new(bar_index + 10, ortalama_, str.tostring(ortalama_maliyet, '#.##') + " (%" + str.tostring(ortalama_yuzdesel, '#.#') + ")", style=label.style_label_left, color=color.blue)
+    
+    array.push(labels, tp_label)
+    array.push(labels, stop_label)
+    array.push(labels, ilk_kademe_label)
+    array.push(labels, ikinci_kademe_label)
+    array.push(labels, ortalama_label)
+
+//______//
+
+// Sinyalleri oluşturma
+ilk_kademe_level = ilk_kademe_alim
+ikinci_kademe_level = ikinci_kademe_alim
+ortalama_level = ortalama_maliyet
+stop_level = zarar_kes
+tp_level = hedef_fiyat
+
+
+// Alım ve satım işlemleri
+var bool buy_signal_1 = false
+var bool buy_signal_2 = false
+var bool buy_signal_3 = false
+var bool sell_signal_triggered = false
+var bool kar_al_1= false
+var bool kar_al_2= false 
+var bool kar_al_3= false 
+
+
+if (close <= ilk_kademe_level and close>= ortalama_level and not buy_signal_1) 
+    strategy.entry("Buy 1/3", strategy.long, qty=toplamLot / 3) 
+    buy_signal_1 := true
+
+if (close <= ortalama_level and close>= ikinci_kademe_level and not buy_signal_2)
+    strategy.entry("Buy 1/3 Again", strategy.long, qty=toplamLot / 3) 
+    buy_signal_2 := true
+    if (close >= ilk_kademe_level)
+        strategy.close("Buy 1/3", qty_percent=50) 
+        kar_al_1 := true
+
+if (close <= ikinci_kademe_level and close>=stop_level and not buy_signal_3)
+    strategy.entry("Buy Final 1/3", strategy.long, qty=toplamLot / 3) 
+    buy_signal_3 := true
+    if (close >= ortalama_level)
+        strategy.close("Buy Final 1/3", qty_percent=20) 
+        kar_al_2:= true
+    if (close >= ilk_kademe_level)
+        strategy.close("Buy Final 1/3", qty_percent=30) 
+        kar_al_3:= true
+
+// Zarar kes ve hedef fiyat
+if (close <= stop_level or close >= tp_level)
+    strategy.close_all()
+    sell_signal_triggered := true
+
+// Stop loss ve hedef fiyat için alertcondition
+alertcondition(buy_signal_1 or buy_signal_2 or buy_signal_3, title="Stop Loss", message='{"apikey": "YOUR_API_KEY", "action": "sell", "symbol": "{{ticker}}", "price": "0", "qty": "0"}')
+alertcondition(sell_signal_triggered , title="Sell Signal Triggered", message='{"apikey": "YOUR_API_KEY", "action": "sell", "symbol": "{{ticker}}", "price": "0", "qty": "0"}')
+// Kademeli satışlar için alertcondition
+alertcondition(kar_al_1, title="Kar Satışı ", message='{"apikey": "YOUR_API_KEY", "action": "sell", "symbol": "{{ticker}}", "price": "0", "qty": "50% of Buy 1/3"}')
+alertcondition(kar_al_2, title="Kar Satışı", message='{"apikey": "YOUR_API_KEY", "action": "sell", "symbol": "{{ticker}}", "price": "0", "qty": "20% of Buy Final 1/3"}')
+alertcondition(kar_al_3, title="Kar Satışı", message='{"apikey": "YOUR_API_KEY", "action": "sell", "symbol": "{{ticker}}", "price": "0", "qty": "30% of Buy Final 1/3"}')
+
+
+
+// if (close <= ilk_kademe_level and close>= ortalama_level and not buy_signal_1) //and strategy.position_size == 0
+//     strategy.entry("Buy 1/3", strategy.long, qty=toplamLot / 3)
+//     buy_signal_1 := true
+
+// if (close <= ortalama_level and close>= ikinci_kademe_level and not buy_signal_2)
+//     strategy.entry("Buy 1/3 Again", strategy.long, qty=toplamLot / 3)
+//     buy_signal_2 := true
+//     if (close >= ilk_kademe_level)
+//         strategy.close("Buy 1/3 Again", qty_percent=50)
+//         kar_al_1 := true
+
+// if (close <= ikinci_kademe_level and close>=stop_level  and not buy_signal_3)
+//     strategy.entry("Buy Final 1/3", strategy.long, qty=toplamLot / 3)
+//     buy_signal_3 := true
+//     if (close >= ortalama_level)
+//         strategy.close("Buy Final 1/3", qty_percent=20)
+//         kar_al_2:= true
+//     if (close >= ilk_kademe_level)
+//         strategy.close("Buy Final 1/3", qty_percent=30)
+//         kar_al_3:= true
+
+// // Zarar kes ve hedef fiyat
+// if (close <= stop_level or close >= tp_level)
+//     strategy.close_all()
+//     sell_signal_triggered := true
